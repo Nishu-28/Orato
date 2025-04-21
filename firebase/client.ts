@@ -24,3 +24,28 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+
+/*
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyC37s4AgyyDLy4rUE7YnZ-4Lk3SOHkPeSw",
+  authDomain: "orato-31f12.firebaseapp.com",
+  projectId: "orato-31f12",
+  storageBucket: "orato-31f12.firebasestorage.app",
+  messagingSenderId: "197000139485",
+  appId: "1:197000139485:web:6279caf57032b44f320134",
+  measurementId: "G-8CSL2LK036"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+*/
