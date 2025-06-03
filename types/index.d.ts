@@ -11,6 +11,10 @@ interface Feedback {
   areasForImprovement: string[];
   finalAssessment: string;
   createdAt: string;
+  resumeFeedback?: {
+    atsScore: number;
+    feedback: string;
+  };
 }
 
 interface Interview {

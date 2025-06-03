@@ -1,13 +1,22 @@
 "use server";
 
-import { generateObject } from "ai";
+import { generateObject, generateText } from "ai";
 import { google } from "@ai-sdk/google";
 
 import { db } from "@/firebase/admin";
 import { feedbackSchema } from "@/constants";
+import { SavedMessage } from "@/components/Agent";
+
+interface CreateFeedbackParams {
+  interviewId: string;
+  userId: string;
+  transcript: SavedMessage[];
+  feedbackId?: string;
+  resumeText?: string;
+}
 
 export async function createFeedback(params: CreateFeedbackParams) {
-  const { interviewId, userId, transcript, feedbackId } = params;
+  const { interviewId, userId, transcript, feedbackId, resumeText } = params;
 
   try {
     const formattedTranscript = transcript
@@ -38,6 +47,23 @@ export async function createFeedback(params: CreateFeedbackParams) {
         "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
     });
 
+    let resumeFeedback;
+    if (resumeText) {
+      // Generate ATS score and feedback for the resume
+      const resumePrompt = `You are an AI resume reviewer. Your task is to evaluate the candidate's resume and provide an ATS score (out of 100) and detailed feedback.\nResume:\n${resumeText}\n\nPlease provide:\n1. An ATS score (0-100) - Start your response with \"ATS score: [number]\"\n2. Detailed feedback on strengths and areas for improvement.`;
+      const resumeResponse = await generateText({
+        model: google("gemini-2.0-flash-001"),
+        prompt: resumePrompt,
+      });
+      const feedbackText = resumeResponse.text || "";
+      const atsScoreMatch = feedbackText.match(/ATS score:\s*(\d+)/i);
+      const atsScore = atsScoreMatch ? parseInt(atsScoreMatch[1]) : 0;
+      resumeFeedback = {
+        atsScore,
+        feedback: feedbackText,
+      };
+    }
+
     const feedback = {
       interviewId: interviewId,
       userId: userId,
@@ -47,6 +73,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
       areasForImprovement: object.areasForImprovement,
       finalAssessment: object.finalAssessment,
       createdAt: new Date().toISOString(),
+      ...(resumeFeedback ? { resumeFeedback } : {}),
     };
 
     let feedbackRef;
@@ -77,17 +104,43 @@ export async function getFeedbackByInterviewId(
 ): Promise<Feedback | null> {
   const { interviewId, userId } = params;
 
-  const querySnapshot = await db
-    .collection("feedback")
-    .where("interviewId", "==", interviewId)
-    .where("userId", "==", userId)
-    .limit(1)
-    .get();
+  // Validate required parameters
+  if (!interviewId || !userId) {
+    console.warn("Missing required parameters for getFeedbackByInterviewId:", { interviewId, userId });
+    return null;
+  }
 
-  if (querySnapshot.empty) return null;
+  try {
+    const querySnapshot = await db
+      .collection("feedback")
+      .where("interviewId", "==", interviewId)
+      .where("userId", "==", userId)
+      .limit(1)
+      .get();
 
-  const feedbackDoc = querySnapshot.docs[0];
-  return { id: feedbackDoc.id, ...feedbackDoc.data() } as Feedback;
+    if (querySnapshot.empty) return null;
+
+    const feedbackDoc = querySnapshot.docs[0];
+    const data = feedbackDoc.data();
+    
+    if (!data) return null;
+
+    return {
+      id: feedbackDoc.id,
+      interviewId: data.interviewId,
+      userId: data.userId,
+      totalScore: data.totalScore || 0,
+      categoryScores: data.categoryScores || [],
+      strengths: data.strengths || [],
+      areasForImprovement: data.areasForImprovement || [],
+      finalAssessment: data.finalAssessment || "",
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      resumeFeedback: data.resumeFeedback || { atsScore: 0, feedback: "" }
+    } as Feedback;
+  } catch (error) {
+    console.error("Error fetching feedback:", error);
+    return null;
+  }
 }
 
 export async function getLatestInterviews(
@@ -124,3 +177,29 @@ export async function getInterviewsByUserId(
     ...doc.data(),
   })) as Interview[];
 }
+
+export const generatePersonalizedQuestions = async (
+  resumeText: string,
+  jobRole: string,
+  jobLevel?: string,
+  techStack?: string[]
+): Promise<string> => {
+  const prompt = `You are an expert interviewer preparing for a${jobLevel ? ` ${jobLevel}` : ""} ${jobRole} interview${techStack && techStack.length ? ` with a tech stack including ${techStack.join(", ")}` : ""}.
+Carefully read the following resume and generate at least 5 personalized interview questions.
+
+- Each question should focus on a different aspect of the candidate's resume, such as their projects, skills, work experience, education, certifications, or other notable fields.
+- Make sure the questions are highly relevant to the job role, level, and required skills.
+- Randomly vary the focus of each question so that not all questions are about the same section.
+- Make the questions specific to the actual content in the resume (e.g., ask about particular projects, skills, or experiences mentioned).
+- Format each question on a new line, starting with a dash.
+- Do not include any extra commentary or text, only the questions.
+
+Resume:
+${resumeText}`;
+
+  const response = await generateText({
+    model: google("gemini-2.0-flash-001"),
+    prompt,
+  });
+  return response.text || "";
+};

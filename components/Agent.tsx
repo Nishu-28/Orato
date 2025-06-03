@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
-import { createFeedback } from "@/lib/actions/general.action";
+import { createFeedback, generatePersonalizedQuestions } from "@/lib/actions/general.action";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -16,9 +16,22 @@ enum CallStatus {
   FINISHED = "FINISHED",
 }
 
-interface SavedMessage {
+export interface SavedMessage {
   role: "user" | "system" | "assistant";
   content: string;
+}
+
+interface AgentProps {
+  userName: string;
+  userId: string | undefined;
+  interviewId: string;
+  type: "generate" | "interview";
+  questions?: string[];
+  feedbackId?: string;
+  resumeText?: string;
+  jobRole: string;
+  jobLevel?: string;
+  techStack?: string[];
 }
 
 const Agent = ({
@@ -28,6 +41,10 @@ const Agent = ({
   feedbackId,
   type,
   questions,
+  resumeText,
+  jobRole,
+  jobLevel,
+  techStack,
 }: AgentProps) => {
   const router = useRouter();
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
@@ -62,7 +79,10 @@ const Agent = ({
     };
 
     const onError = (error: Error) => {
-      console.log("Error:", error);
+      console.error("VAPI Error:", error);
+      setCallStatus(CallStatus.FINISHED);
+      // Show error to user
+      alert("Failed to connect to the interview service. Please check your internet connection and try again.");
     };
 
     vapi.on("call-start", onCallStart);
@@ -115,28 +135,64 @@ const Agent = ({
   }, [messages, callStatus, feedbackId, interviewId, router, type, userId]);
 
   const handleCall = async () => {
-    setCallStatus(CallStatus.CONNECTING);
+    try {
+      setCallStatus(CallStatus.CONNECTING);
 
-    if (type === "generate") {
-      await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-        variableValues: {
-          username: userName,
-          userid: userId,
-        },
-      });
-    } else {
-      let formattedQuestions = "";
-      if (questions) {
-        formattedQuestions = questions
-          .map((question) => `- ${question}`)
-          .join("\n");
+      if (type === "generate") {
+        if (!process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID) {
+          throw new Error("VAPI Workflow ID is not configured");
+        }
+        await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID, {
+          variableValues: {
+            username: userName,
+            userid: userId,
+          },
+        });
+      } else {
+        let formattedQuestions = "";
+        if (questions) {
+          if (resumeText) {
+            // Generate personalized questions based on resume and job context
+            const personalizedQuestions = await generatePersonalizedQuestions(resumeText, jobRole, jobLevel, techStack);
+            const personalizedQuestionsList = personalizedQuestions
+              .split('\n')
+              .filter(q => q.trim().startsWith('-'))
+              .map(q => q.trim().substring(2));
+
+            // Calculate how many questions to replace (35% of total)
+            const totalQuestions = questions.length;
+            const questionsToReplace = Math.ceil(totalQuestions * 0.35);
+            
+            // Get the first N general questions (65% of total)
+            const generalQuestions = questions.slice(0, totalQuestions - questionsToReplace);
+            
+            // Get the first N personalized questions (35% of total)
+            const selectedPersonalizedQuestions = personalizedQuestionsList.slice(0, questionsToReplace);
+            
+            // Combine the questions, keeping the original order
+            const mixedQuestions = [...generalQuestions, ...selectedPersonalizedQuestions];
+            
+            formattedQuestions = mixedQuestions
+              .map((question) => `- ${question}`)
+              .join("\n");
+          } else {
+            // If no resume, use all general questions
+            formattedQuestions = questions
+              .map((question) => `- ${question}`)
+              .join("\n");
+          }
+        }
+
+        await vapi.start(interviewer, {
+          variableValues: {
+            questions: formattedQuestions,
+          },
+        });
       }
-
-      await vapi.start(interviewer, {
-        variableValues: {
-          questions: formattedQuestions,
-        },
-      });
+    } catch (error) {
+      console.error("Error starting interview:", error);
+      setCallStatus(CallStatus.FINISHED);
+      alert("Failed to start the interview. Please try again.");
     }
   };
 

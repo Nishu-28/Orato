@@ -1,8 +1,11 @@
+import React from "react";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 
 import Agent from "@/components/Agent";
 import { getRandomInterviewCover } from "@/lib/utils";
+import InterviewContent from "@/components/InterviewContent";
+import ResumeUpload from "@/components/ResumeUpload";
 
 import {
   getFeedbackByInterviewId,
@@ -11,17 +14,24 @@ import {
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import DisplayTechIcons from "@/components/DisplayTechIcons";
 
+interface RouteParams {
+  params: {
+    id: string;
+  };
+}
+
 const InterviewDetails = async ({ params }: RouteParams) => {
-  const { id } = await params;
+  const { id } = params;
 
   const user = await getCurrentUser();
+  if (!user) redirect("/");
 
   const interview = await getInterviewById(id);
   if (!interview) redirect("/");
 
   const feedback = await getFeedbackByInterviewId({
     interviewId: id,
-    userId: user?.id!,
+    userId: user.id,
   });
 
   return (
@@ -47,13 +57,15 @@ const InterviewDetails = async ({ params }: RouteParams) => {
         </p>
       </div>
 
-      <Agent
-        userName={user?.name!}
-        userId={user?.id}
+      <InterviewContent
+        userName={user.name}
+        userId={user.id}
         interviewId={id}
-        type="interview"
         questions={interview.questions}
         feedbackId={feedback?.id}
+        jobRole={interview.role}
+        jobLevel={interview.level}
+        techStack={interview.techstack}
       />
     </>
   );

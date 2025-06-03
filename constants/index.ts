@@ -109,10 +109,10 @@ export const interviewer: CreateAssistantDTO = {
   voice: {
     provider: "11labs",
     voiceId: "sarah",
-    stability: 0.4,
-    similarityBoost: 0.8,
-    speed: 0.9,
-    style: 0.5,
+    stability: 0.75,
+    similarityBoost: 0.75,
+    speed: 1.0,
+    style: 0.0,
     useSpeakerBoost: true,
   },
   model: {
@@ -136,7 +136,7 @@ Be professional, yet warm and welcoming:
 Use official yet friendly language.
 Keep responses concise and to the point (like in a real voice interview).
 Avoid robotic phrasing—sound natural and conversational.
-Answer the candidate’s questions professionally:
+Answer the candidate's questions professionally:
 
 If asked about the role, company, or expectations, provide a clear and relevant answer.
 If unsure, redirect the candidate to HR for more details.
