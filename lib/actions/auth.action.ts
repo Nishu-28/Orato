@@ -49,11 +49,11 @@ export async function signUp(params: SignUpParams) {
       success: true,
       message: "Account created successfully. Please sign in.",
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating user:", error);
 
     // Handle Firebase specific errors
-    if (error.code === "auth/email-already-exists") {
+    if (error instanceof Error && error.message === "auth/email-already-exists") {
       return {
         success: false,
         message: "This email is already in use",
@@ -79,9 +79,7 @@ export async function signIn(params: SignInParams) {
       };
 
     await setSessionCookie(idToken);
-  } catch (error: any) {
-    console.log("");
-
+  } catch {
     return {
       success: false,
       message: "Failed to log into account. Please try again.",
@@ -117,7 +115,7 @@ export async function getCurrentUser(): Promise<User | null> {
       ...userRecord.data(),
       id: userRecord.id,
     } as User;
-  } catch (error) {
+  } catch (error: unknown) {
     console.log(error);
 
     // Invalid or expired session

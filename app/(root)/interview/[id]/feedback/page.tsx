@@ -19,12 +19,8 @@ const Feedback = async ({ params }: RouteParams) => {
 
   const feedback = await getFeedbackByInterviewId({
     interviewId: id,
-    userId: user?.id!,
+    userId: user?.id ?? '',
   });
-
-  // Helper for ATS progress bar width
-  const atsScore = feedback?.resumeFeedback?.atsScore || 0;
-  const atsBarWidth = `${Math.min(atsScore, 100)}%`;
 
   return (
     <section className="section-feedback">

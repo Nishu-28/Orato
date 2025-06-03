@@ -2,10 +2,8 @@ import React from "react";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 
-import Agent from "@/components/Agent";
 import { getRandomInterviewCover } from "@/lib/utils";
 import InterviewContent from "@/components/InterviewContent";
-import ResumeUpload from "@/components/ResumeUpload";
 
 import {
   getFeedbackByInterviewId,
@@ -14,8 +12,8 @@ import {
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import DisplayTechIcons from "@/components/DisplayTechIcons";
 
-export default async function Page({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default async function Page({ params }: RouteParams) {
+  const { id } = await params;
 
   const user = await getCurrentUser();
   if (!user) redirect("/");

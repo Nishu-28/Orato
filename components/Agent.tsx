@@ -24,12 +24,12 @@ export interface SavedMessage {
 interface AgentProps {
   userName: string;
   userId: string | undefined;
-  interviewId: string;
+  interviewId?: string;
   type: "generate" | "interview";
   questions?: string[];
   feedbackId?: string;
   resumeText?: string;
-  jobRole: string;
+  jobRole?: string;
   jobLevel?: string;
   techStack?: string[];
 }
@@ -151,7 +151,7 @@ const Agent = ({
       } else {
         let formattedQuestions = "";
         if (questions) {
-          if (resumeText) {
+          if (resumeText && jobRole) {
             // Generate personalized questions based on resume and job context
             const personalizedQuestions = await generatePersonalizedQuestions(resumeText, jobRole, jobLevel, techStack);
             const personalizedQuestionsList = personalizedQuestions
@@ -176,7 +176,7 @@ const Agent = ({
               .map((question) => `- ${question}`)
               .join("\n");
           } else {
-            // If no resume, use all general questions
+            // If no resume or jobRole, use all general questions
             formattedQuestions = questions
               .map((question) => `- ${question}`)
               .join("\n");

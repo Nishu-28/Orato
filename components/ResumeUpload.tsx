@@ -1,19 +1,11 @@
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import type { TextItem } from "pdfjs-dist/types/src/display/api";
 import mammoth from "mammoth";
 
 // Initialize PDF.js worker
 if (typeof window !== 'undefined') {
   GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
-}
-
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
 }
 
 interface ResumeUploadProps {
@@ -23,7 +15,6 @@ interface ResumeUploadProps {
 const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeUpload }) => {
   const [resumeText, setResumeText] = useState<string>("");
   const [error, setError] = useState<string>("");
-  const router = useRouter();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -43,7 +34,8 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ onResumeUpload }) => {
               const page = await pdf.getPage(i);
               const content = await page.getTextContent();
               const pageText = content.items
-                .map((item: any) => item.str)
+                .filter((item): item is TextItem => 'str' in item)
+                .map((item) => item.str)
                 .join(" ")
                 .trim();
               text += pageText + "\n";
